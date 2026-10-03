@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NBA Standings Predictor - Submit Picks</title>
+  <!-- SortableJS for smooth mobile drag & drop -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <style>
+    * { box-sizing: border-box; touch-action: manipulation; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 16px; }
+    .container { max-width: 600px; margin: 0 auto; }
+    h1 { text-align: center; color: #38bdf8; margin-bottom: 8px; font-size: 1.5rem; }
+    p.subtitle { text-align: center; color: #94a3b8; font-size: 0.9rem; margin-top: 0; margin-bottom: 20px; }
+
+    .input-group { margin-bottom: 20px; }
+    label { display: block; font-weight: bold; margin-bottom: 6px; color: #cbd5e1; font-size: 0.9rem; }
+    input[type="text"] { width: 100%; padding: 12px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; }
+    input[type="text"]:focus { border-color: #38bdf8; }
+
+    /* Conference Tabs */
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab-btn { flex: 1; padding: 12px; background: #1e293b; border: 1px solid #334155; color: #94a3b8; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; text-align: center; }
+    .tab-btn.active { background: #0284c7; color: #ffffff; border-color: #38bdf8; }
+
+    /* Drag List Styling */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .team-list { list-style: none; padding: 0; margin: 0; }
+    .team-card { display: flex; align-items: center; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; cursor: grab; user-select: none; transition: transform 0.15s, background 0.15s; }
+    .team-card:active { cursor: grabbing; }
+    .sortable-ghost { opacity: 0.4; background: #0369a1; }
+    .rank-num { width: 28px; font-weight: bold; color: #38bdf8; font-size: 0.95rem; }
+    .team-name { flex: 1; font-weight: 500; font-size: 0.95rem; }
+    .drag-handle { color: #64748b; font-size: 1.2rem; }
+
+    /* Submit Button */
+    .submit-btn { display: block; width: 100%; padding: 16px; background: #22c55e; color: #052e16; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 24px; transition: background 0.2s; }
+    .submit-btn:hover { background: #16a34a; }
+    .submit-btn:disabled { background: #475569; color: #94a3b8; cursor: not-allowed; }
+
+    #status-msg { text-align: center; margin-top: 12px; font-size: 0.95rem; font-weight: bold; min-height: 24px; }
+    .status-success { color: #4ade80; }
+    .status-error { color: #f87171; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏀 NBA Standings Predictor</h1>
+    <p class="subtitle">Drag & drop teams into your predicted order (1st to 15th)</p>
+
+    <div class="input-group">
+      <label for="player-name">Your Name / Display Name:</label>
+      <input type="text" id="player-name" placeholder="Enter your name" required>
+    </div>
+
+    <!-- Conference Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('east')">Eastern Conference</button>
+      <button class="tab-btn" onclick="switchTab('west')">Western Conference</button>
+    </div>
+
+    <!-- East List -->
+    <div id="east-tab" class="tab-content active">
+      <ul id="east-list" class="team-list"></ul>
+    </div>
+
+    <!-- West List -->
+    <div id="west-tab" class="tab-content">
+      <ul id="west-list" class="team-list"></ul>
+    </div>
+
+    <button id="submit-btn" class="submit-btn" onclick="submitPredictions()">Submit Predictions</button>
+    <div id="status-msg"></div>
+  </div>
+
+  <script>
+    // REPLACE THIS WITH YOUR DEPLOYED APPS SCRIPT WEB APP URL
+    const SCRIPT_URL = "YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+
+    const eastTeams = [
+      "Atlanta Hawks", "Boston Celtics", "Brooklyn Nets", "Charlotte Hornets",
+      "Chicago Bulls", "Cleveland Cavaliers", "Detroit Pistons", "Indiana Pacers",
+      "Miami Heat", "Milwaukee Bucks", "New York Knicks", "Orlando Magic",
+      "Philadelphia 76ers", "Toronto Raptors", "Washington Wizards"
+    ];
+
+    const westTeams = [
+      "Dallas Mavericks", "Denver Nuggets", "Golden State Warriors", "Houston Rockets",
+      "LA Clippers", "Los Angeles Lakers", "Memphis Grizzlies", "Minnesota Timberwolves",
+      "New Orleans Pelicans", "Oklahoma City Thunder", "Phoenix Suns", "Portland Trail Blazers",
+      "Sacramento Kings", "San Antonio Spurs", "Utah Jazz"
+    ];
+
+    let eastSortable, westSortable;
+
+    function renderList(elementId, teams) {
+      const listEl = document.getElementById(elementId);
+      listEl.innerHTML = teams.map((team, idx) => `
+        <li class="team-card" data-team="${team}">
+          <span class="rank-num">${idx + 1}</span>
+          <span class="team-name">${team}</span>
+          <span class="drag-handle">☰</span>
+        </li>
+      `).join('');
+    }
+
+    function updateRanks(listEl) {
+      const cards = listEl.querySelectorAll('.team-card');
+      cards.forEach((card, idx) => {
+        card.querySelector('.rank-num').textContent = idx + 1;
+      });
+    }
+
+    function initSortables() {
+      renderList('east-list', eastTeams);
+      renderList('west-list', westTeams);
+
+      const eastEl = document.getElementById('east-list');
+      const westEl = document.getElementById('west-list');
+
+      eastSortable = new Sortable(eastEl, {
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        onEnd: () => updateRanks(eastEl)
+      });
+
+      westSortable = new Sortable(westEl, {
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        onEnd: () => updateRanks(westEl)
+      });
+    }
+
+    function switchTab(conf) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      if (conf === 'east') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('east-tab').classList.add('active');
+      } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('west-tab').classList.add('active');
+      }
+    }
+
+    function getOrderedTeams(listId) {
+      const cards = document.querySelectorAll(`#${listId} .team-card`);
+      return Array.from(cards).map(card => card.getAttribute('data-team'));
+    }
+
+    async function submitPredictions() {
+      const nameInput = document.getElementById('player-name').value.trim();
+      const statusMsg = document.getElementById('status-msg');
+      const submitBtn = document.getElementById('submit-btn');
+
+      if (!nameInput) {
+        statusMsg.className = 'status-error';
+        statusMsg.textContent = 'Please enter your name before submitting.';
+        return;
+      }
+
+      const payload = {
+        name: nameInput,
+        east: getOrderedTeams('east-list'),
+        west: getOrderedTeams('west-list')
+      };
+
+      submitBtn.disabled = true;
+      statusMsg.className = '';
+      statusMsg.textContent = 'Submitting your picks...';
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+
+        const res = await response.json();
+
+        if (res.status === 'success') {
+          statusMsg.className = 'status-success';
+          statusMsg.textContent = 'Picks submitted successfully! Redirecting...';
+          setTimeout(() => {
+            window.location.href = 'nba_standings.html';
+          }, 1500);
+        } else {
+          throw new Error(res.message || 'Submission failed.');
+        }
+      } catch (err) {
+        statusMsg.className = 'status-error';
+        statusMsg.textContent = 'Error submitting picks. Please try again.';
+        submitBtn.disabled = false;
+      }
+    }
+
+    initSortables();
+  </script>
+</body>
+</html>
