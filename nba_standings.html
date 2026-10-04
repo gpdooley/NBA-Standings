@@ -5,214 +5,77 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NBA Standings & Pool Leaderboard</title>
 
-  <!-- Bootstrap 5 CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Vue 3 -->
-  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- jQuery & Bootstrap 4 -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 
   <style>
     body {
       background-color: #f8f9fa;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding: 20px;
     }
     .card {
-      border: none;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .table-hover tbody tr {
       cursor: pointer;
     }
-    .badge-exact {
-      background-color: #d1e7dd;
-      color: #0f5132;
-      font-weight: 600;
-      padding: 0.35em 0.65em;
-      border-radius: 6px;
-    }
-    .badge-diff {
-      background-color: #f8f9fa;
-      color: #6c757d;
-      font-weight: 500;
-      padding: 0.35em 0.65em;
-      border-radius: 6px;
-      border: 1px solid #dee2e6;
-    }
     .modal-table td, .modal-table th {
       vertical-align: middle;
-    }
-    .leaderboard-row:hover {
-      background-color: #f1f3f5 !important;
     }
   </style>
 </head>
 <body>
 
-<div id="app" class="container py-4">
-  <header class="mb-4 text-center">
-    <h1 class="fw-bold">NBA Standings Pool</h1>
-    <p class="text-muted">Live standings & participant leaderboard</p>
-  </header>
-
-  <!-- Loading State -->
-  <div v-if="loading" class="text-center py-5">
-    <div class="spinner-border text-primary" role="status">
-      <span class="visually-hidden">Loading...</span>
+<div class="container-fluid">
+  <div class="row text-center mb-4">
+    <div class="col-12">
+      <h1 class="display-4">NBA Standings Pool</h1>
+      <p class="lead">Live Standings and Participant Leaderboard</p>
     </div>
-    <p class="mt-2 text-muted">Fetching live data...</p>
   </div>
 
-  <!-- Main Content -->
-  <div v-else class="row g-4">
-    <!-- LEADERBOARD TAB -->
-    <div class="col-12">
-      <div class="card p-4">
-        <h3 class="card-title fw-bold mb-3">Leaderboard</h3>
-        <p class="text-muted small mb-3">Click on any participant to view their complete pick breakdown.</p>
-        
-        <div class="table-responsive">
-          <table class="table table-hover align-middle">
-            <thead class="table-light">
+  <div class="row">
+    <!-- LEADERBOARD -->
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <h3 class="card-title mb-0">Leaderboard</h3>
+        </div>
+        <div class="card-body">
+          <table class="table table-hover">
+            <thead>
               <tr>
-                <th style="width: 10%;">Rank</th>
-                <th style="width: 40%;">Participant</th>
-                <th style="width: 25%;" class="text-center">Off-Points</th>
-                <th style="width: 25%;" class="text-center">Teams Evaluated</th>
+                <th>Rank</th>
+                <th>Name</th>
+                <th class="text-center">Off-Points</th>
               </tr>
             </thead>
-            <tbody>
-              <tr 
-                v-for="user in leaderboard" 
-                :key="user.name" 
-                class="leaderboard-row"
-                @click="openModal(user)"
-              >
-                <td><strong>#{{ user.rank }}</strong></td>
-                <td class="fw-semibold text-primary">{{ user.name }}</td>
-                <td class="text-center"><span class="badge bg-secondary fs-6">{{ user.score }}</span></td>
-                <td class="text-center text-muted">{{ user.evaluated }} / 30</td>
-              </tr>
-              <tr v-if="!leaderboard.length">
-                <td colspan="4" class="text-center text-muted py-4">No submissions found.</td>
-              </tr>
+            <tbody id="leaderboardBody">
+              <tr><td colspan="3" class="text-center">Loading leaderboard...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- LIVE STANDINGS TAB -->
+    <!-- LIVE STANDINGS -->
     <div class="col-md-6">
-      <div class="card p-4">
-        <h4 class="fw-bold mb-3">Eastern Conference</h4>
-        <table class="table table-sm align-middle">
-          <thead class="table-light">
-            <tr>
-              <th style="width: 20%;">Rank</th>
-              <th style="width: 80%;">Team</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in eastStandings" :key="item.team">
-              <td><strong>#{{ item.rank }}</strong></td>
-              <td>{{ item.team }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="col-md-6">
-      <div class="card p-4">
-        <h4 class="fw-bold mb-3">Western Conference</h4>
-        <table class="table table-sm align-middle">
-          <thead class="table-light">
-            <tr>
-              <th style="width: 20%;">Rank</th>
-              <th style="width: 80%;">Team</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in westStandings" :key="item.team">
-              <td><strong>#{{ item.rank }}</strong></td>
-              <td>{{ item.team }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- PARTICIPANT PICKS MODAL -->
-  <div class="modal fade" id="picksModal" tabindex="-1" aria-labelledby="picksModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold" id="picksModalLabel">
-            {{ selectedUser ? selectedUser.name + "'s Predictions" : 'Participant Picks' }}
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      <div class="card">
+        <div class="card-header bg-dark text-white">
+          <h3 class="card-title mb-0">Live Standings</h3>
         </div>
-        <div class="modal-body p-4" v-if="selectedUser">
-          <div class="row g-4">
-            <!-- EAST TABLE -->
-            <div class="col-md-6">
-              <h6 class="fw-bold border-bottom pb-2 mb-3">Eastern Conference</h6>
-              <div v-if="getConferencePicks('east').length" class="table-responsive">
-                <table class="table table-sm modal-table">
-                  <thead class="table-light">
-                    <tr>
-                      <th class="text-center" style="width: 15%;">Pick</th>
-                      <th style="width: 45%;">Team</th>
-                      <th class="text-center" style="width: 20%;">Actual</th>
-                      <th class="text-center" style="width: 20%;">Diff</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(item, idx) in getConferencePicks('east')" :key="idx">
-                      <td class="text-center"><strong>#{{ idx + 1 }}</strong></td>
-                      <td>{{ item.team }}</td>
-                      <td class="text-center">#{{ item.actualRank }}</td>
-                      <td class="text-center">
-                        <span :class="item.diff === 0 ? 'badge-exact' : 'badge-diff'">
-                          {{ item.diff === 0 ? '0' : '+' + item.diff }}
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <p v-else class="text-muted small">No Eastern predictions found.</p>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-6">
+              <h5>Eastern</h5>
+              <ol id="eastStandings" class="pl-3"></ol>
             </div>
-
-            <!-- WEST TABLE -->
-            <div class="col-md-6">
-              <h6 class="fw-bold border-bottom pb-2 mb-3">Western Conference</h6>
-              <div v-if="getConferencePicks('west').length" class="table-responsive">
-                <table class="table table-sm modal-table">
-                  <thead class="table-light">
-                    <tr>
-                      <th class="text-center" style="width: 15%;">Pick</th>
-                      <th style="width: 45%;">Team</th>
-                      <th class="text-center" style="width: 20%;">Actual</th>
-                      <th class="text-center" style="width: 20%;">Diff</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(item, idx) in getConferencePicks('west')" :key="idx">
-                      <td class="text-center"><strong>#{{ idx + 1 }}</strong></td>
-                      <td>{{ item.team }}</td>
-                      <td class="text-center">#{{ item.actualRank }}</td>
-                      <td class="text-center">
-                        <span :class="item.diff === 0 ? 'badge-exact' : 'badge-diff'">
-                          {{ item.diff === 0 ? '0' : '+' + item.diff }}
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <p v-else class="text-muted small">No Western predictions found.</p>
+            <div class="col-6">
+              <h5>Western</h5>
+              <ol id="westStandings" class="pl-3"></ol>
             </div>
           </div>
         </div>
@@ -221,91 +84,176 @@
   </div>
 </div>
 
-<!-- Bootstrap 5 JS Bundle -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- PICKS MODAL -->
+<div class="modal fade" id="picksModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle">Participant Picks</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="modalContent">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
   // Replace with your Google Apps Script Executable Web App URL
   const SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL';
 
-  const { createApp } = Vue;
+  window.currentStandings = [];
+  window.leaderboardData = [];
 
-  createApp({
-    data() {
-      return {
-        loading: true,
-        standings: [],
-        leaderboard: [],
-        selectedUser: null,
-        bsModal: null
-      };
-    },
-    computed: {
-      eastStandings() {
-        return this.standings.filter(s => s.conference.toLowerCase() === 'east');
+  $(document).ready(function() {
+    loadData();
+  });
+
+  function loadData() {
+    $.ajax({
+      url: SCRIPT_URL,
+      type: 'GET',
+      dataType: 'json',
+      success: function(response) {
+        if (response.status === 'success' && response.data) {
+          window.currentStandings = response.data.standings || [];
+          window.leaderboardData = response.data.leaderboard || [];
+
+          renderStandings(window.currentStandings);
+          renderLeaderboard(window.leaderboardData);
+        } else {
+          alert('Error loading data from Google Sheet backend.');
+        }
       },
-      westStandings() {
-        return this.standings.filter(s => s.conference.toLowerCase() === 'west');
-      },
-      actualRankMap() {
-        const map = {};
-        this.standings.forEach(item => {
-          const key = `${item.conference.toLowerCase()}_${item.team.trim()}`;
-          map[key] = item.rank;
-        });
-        return map;
+      error: function(err) {
+        console.error('API Error:', err);
       }
-    },
-    methods: {
-      async fetchData() {
-        try {
-          const res = await fetch(SCRIPT_URL);
-          const json = await res.json();
-          if (json.status === 'success' && json.data) {
-            this.standings = json.data.standings || [];
-            this.leaderboard = json.data.leaderboard || [];
-          }
-        } catch (err) {
-          console.error('Failed to load standings data:', err);
-        } finally {
-          this.loading = false;
-        }
-      },
-      openModal(user) {
-        this.selectedUser = user;
-        if (!this.bsModal) {
-          this.bsModal = new bootstrap.Modal(document.getElementById('picksModal'));
-        }
-        this.bsModal.show();
-      },
-      getConferencePicks(conf) {
-        if (!this.selectedUser || !this.selectedUser.picks || !this.selectedUser.picks[conf]) {
-          return [];
-        }
+    });
+  }
 
-        const pickList = this.selectedUser.picks[conf];
-        return pickList.map((teamName, index) => {
-          const pickRank = index + 1;
-          const key = `${conf.toLowerCase()}_${teamName.trim()}`;
-          const actualRank = this.actualRankMap[key] !== undefined ? this.actualRankMap[key] : '-';
-          
-          let diff = '-';
-          if (typeof actualRank === 'number') {
-            diff = Math.abs(pickRank - actualRank);
-          }
+  function renderStandings(standings) {
+    const $east =$('#eastStandings').empty();
+    const $west =$('#westStandings').empty();
 
-          return {
-            team: teamName,
-            actualRank: actualRank,
-            diff: diff
-          };
-        });
+    standings.forEach(item => {
+      const conf = (item.conference || '').toLowerCase();
+      const li = `<li>${item.team}</li>`;
+      if (conf === 'east') {
+        $east.append(li);
+      } else if (conf === 'west') {
+        $west.append(li);
       }
-    },
-    mounted() {
-      this.fetchData();
+    });
+  }
+
+  function renderLeaderboard(leaderboard) {
+    const $body =$('#leaderboardBody').empty();
+
+    if (!leaderboard.length) {
+      $body.append('<tr><td colspan="3" class="text-center">No submissions yet.</td></tr>');
+      return;
     }
-  }).mount('#app');
+
+    leaderboard.forEach(user => {
+      const row = $(`
+        <tr>
+          <td><strong>#${user.rank}</strong></td>
+          <td class="text-primary font-weight-bold">${user.name}</td>
+          <td class="text-center"><span class="badge badge-secondary p-2">${user.score}</span></td>
+        </tr>
+      `);
+
+      row.on('click', function() {
+        showPicksModal(user);
+      });
+
+      $body.append(row);
+    });
+  }
+
+  function showPicksModal(participant) {
+    if (!participant || !participant.picks) return;
+
+    $('#modalTitle').text(`${participant.name}'s Predictions`);
+
+    // Build lookup map for current actual rankings
+    const actualRanks = {};
+    if (window.currentStandings) {
+      window.currentStandings.forEach(item => {
+        const key = `${(item.conference || '').toLowerCase()}_${item.team.trim()}`;
+        actualRanks[key] = item.rank;
+      });
+    }
+
+    function buildConferenceTable(confName, teamsList) {
+      if (!teamsList || !teamsList.length) {
+        return `<p class="text-muted">No ${confName} predictions available.</p>`;
+      }
+
+      let rowsHtml = teamsList.map((team, index) => {
+        const pickRank = index + 1;
+        const key = `${confName.toLowerCase()}_${team.trim()}`;
+        const actualRank = actualRanks[key] !== undefined ? actualRanks[key] : '-';
+        
+        let diffText = '-';
+        let diffClass = '';
+
+        if (typeof actualRank === 'number') {
+          const diff = Math.abs(pickRank - actualRank);
+          if (diff === 0) {
+            diffText = '0';
+            diffClass = 'text-success font-weight-bold';
+          } else {
+            diffText = `+${diff}`;
+            diffClass = 'text-muted';
+          }
+        }
+
+        return `
+          <tr>
+            <td style="width: 15%; text-align: center;"><strong>#${pickRank}</strong></td>
+            <td style="width: 45%;">${team}</td>
+            <td style="width: 20%; text-align: center;">#${actualRank}</td>
+            <td style="width: 20%; text-align: center;" class="${diffClass}">${diffText}</td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div class="conference-section mb-3">
+          <h5 class="border-bottom pb-2">${confName} Conference</h5>
+          <table class="table table-sm table-hover modal-table">
+            <thead class="thead-light">
+              <tr>
+                <th style="text-align: center;">Pick</th>
+                <th>Team</th>
+                <th style="text-align: center;">Actual</th>
+                <th style="text-align: center;">Diff</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    const eastTable = buildConferenceTable('East', participant.picks.east);
+    const westTable = buildConferenceTable('West', participant.picks.west);
+
+    $('#modalContent').html(`
+      <div class="row">
+        <div class="col-md-6">${eastTable}</div>
+        <div class="col-md-6">${westTable}</div>
+      </div>
+    `);
+
+    $('#picksModal').modal('show');
+  }
 </script>
 
 </body>
