@@ -25,6 +25,11 @@
     tr:last-child td { border-bottom: none; }
     tr:nth-child(even) { background: #182232; }
 
+    /* Clickable Leaderboard Rows */
+    .clickable-row { cursor: pointer; transition: background 0.15s; }
+    .clickable-row:hover { background: #0284c7 !important; color: #fff; }
+    .clickable-row:hover td { color: #fff; }
+
     .rank-col { width: 60px; font-weight: bold; color: #f59e0b; }
     .score-col { font-weight: bold; color: #4ade80; }
 
@@ -36,6 +41,19 @@
     #error-state { color: #f87171; display: none; }
     .spinner { margin: 0 auto 12px; width: 28px; height: 28px; border: 3px solid #334155; border-top-color: #38bdf8; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Modal Styling */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center; padding: 16px; }
+    .modal-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 700px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 24px; position: relative; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 12px; margin-bottom: 16px; }
+    .modal-title { margin: 0; font-size: 1.3rem; color: #38bdf8; }
+    .close-btn { background: transparent; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; font-weight: bold; }
+    .close-btn:hover { color: #fff; }
+
+    .diff-badge { font-size: 0.8rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+    .diff-perfect { background: #166534; color: #4ade80; }
+    .diff-close { background: #854d0e; color: #fde047; }
+    .diff-far { background: #991b1b; color: #fca5a5; }
   </style>
 </head>
 <body>
@@ -60,15 +78,15 @@
 
     <div id="content-area" style="display: none;">
       <!-- Leaderboard Section -->
-      <h2 class="section-title">🏆 Pool Leaderboard</h2>
+      <h2 class="section-title">🏆 Pool Leaderboard <span style="font-size: 0.85rem; font-weight: normal; color: #94a3b8;">(Click participant to view picks)</span></h2>
       <div class="table-container">
         <table>
           <thead>
             <tr>
               <th class="rank-col">Rank</th>
               <th>Participant</th>
-              <th>Off-Points (Lower = Better)</th>
-              <th>Evaluated Teams</th>
+              <th>Off-Points</th>
+              <th>Evaluated</th>
             </tr>
           </thead>
           <tbody id="leaderboard-body"></tbody>
@@ -111,8 +129,53 @@
     </div>
   </div>
 
+  <!-- Detailed Participant Picks Modal -->
+  <div id="picks-modal" class="modal-overlay" onclick="closeModalOnOuterClick(event)">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-user-name" class="modal-title">Participant's Picks</h3>
+        <button class="close-btn" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="grid">
+        <div>
+          <h4 style="color: #38bdf8; margin-top: 0;">East Predictions</h4>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Pick</th>
+                  <th>Team</th>
+                  <th>Actual</th>
+                </tr>
+              </thead>
+              <tbody id="modal-east-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h4 style="color: #38bdf8; margin-top: 0;">West Predictions</h4>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Pick</th>
+                  <th>Team</th>
+                  <th>Actual</th>
+                </tr>
+              </thead>
+              <tbody id="modal-west-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZDWO4B59VhKcnglNniejrPPFxZ6yLvFnF_TsGIjba3D0wiOYm-X9L-7Q7GC1oipJK/exec";
+
+    let globalLeaderboard = [];
+    let globalLiveRanks = {};
 
     async function loadData() {
       const loadingEl = document.getElementById('loading-state');
@@ -129,17 +192,20 @@
           redirect: 'follow'
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error ${response.status}`);
 
         const res = await response.json();
+        if (res.status !== 'success' || !res.data) throw new Error(res.message || 'Invalid server response structure');
 
-        if (res.status !== 'success' || !res.data) {
-          throw new Error(res.message || 'Invalid server response structure');
-        }
+        globalLeaderboard = res.data.leaderboard || [];
 
-        renderLeaderboard(res.data.leaderboard || []);
+        // Map live team ranks for fast lookup
+        globalLiveRanks = {};
+        (res.data.standings || []).forEach(s => {
+          globalLiveRanks[String(s.conference).toLowerCase() + "_" + String(s.team).trim()] = Number(s.rank);
+        });
+
+        renderLeaderboard(globalLeaderboard);
         renderStandings(res.data.standings || []);
 
         loadingEl.style.display = 'none';
@@ -160,14 +226,71 @@
         return;
       }
 
-      tbody.innerHTML = leaderboard.map(row => `
-        <tr>
+      tbody.innerHTML = leaderboard.map((row, idx) => `
+        <tr class="clickable-row" onclick="openParticipantModal(${idx})">
           <td class="rank-col">#${row.rank}</td>
           <td><strong>${escapeHtml(row.name)}</strong></td>
           <td class="score-col">${row.score} pts</td>
           <td>${row.evaluated} / 30</td>
         </tr>
       `).join('');
+    }
+
+    function openParticipantModal(index) {
+      const participant = globalLeaderboard[index];
+      if (!participant) return;
+
+      document.getElementById('modal-user-name').textContent = `${participant.name}'s Predictions (${participant.score} off-pts)`;
+
+      renderConferencePicks('modal-east-body', 'east', participant.picks ? participant.picks.east : []);
+      renderConferencePicks('modal-west-body', 'west', participant.picks ? participant.picks.west : []);
+
+      document.getElementById('picks-modal').style.display = 'flex';
+    }
+
+    function renderConferencePicks(elementId, conf, picks) {
+      const tbody = document.getElementById(elementId);
+      if (!picks || picks.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" style="color: #94a3b8; text-align: center;">No picks</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = picks.map((team, idx) => {
+        const predRank = idx + 1;
+        const actualRank = globalLiveRanks[conf + "_" + String(team).trim()];
+        
+        let diffText = "N/A";
+        let badgeClass = "";
+
+        if (actualRank) {
+          const diff = Math.abs(predRank - actualRank);
+          if (diff === 0) {
+            diffText = `#${actualRank} (Exact!)`;
+            badgeClass = "diff-perfect";
+          } else {
+            diffText = `#${actualRank} (Off by ${diff})`;
+            badgeClass = diff <= 2 ? "diff-close" : "diff-far";
+          }
+        }
+
+        return `
+          <tr>
+            <td style="font-weight: bold; color: #38bdf8;">${predRank}</td>
+            <td>${escapeHtml(team)}</td>
+            <td><span class="diff-badge ${badgeClass}">${diffText}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function closeModal() {
+      document.getElementById('picks-modal').style.display = 'none';
+    }
+
+    function closeModalOnOuterClick(e) {
+      if (e.target.id === 'picks-modal') {
+        closeModal();
+      }
     }
 
     function renderStandings(standings) {
@@ -202,7 +325,6 @@
         .replace(/'/g, "&#039;");
     }
 
-    // Initial load
     loadData();
   </script>
 </body>
