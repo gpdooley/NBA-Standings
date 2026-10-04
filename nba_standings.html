@@ -50,7 +50,7 @@
     .close-btn { background: transparent; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; font-weight: bold; }
     .close-btn:hover { color: #fff; }
 
-    .diff-badge { font-size: 0.8rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+    .diff-badge { font-size: 0.8rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; min-width: 24px; text-align: center; }
     .diff-perfect { background: #166534; color: #4ade80; }
     .diff-close { background: #854d0e; color: #fde047; }
     .diff-far { background: #991b1b; color: #fca5a5; }
@@ -143,9 +143,10 @@
             <table>
               <thead>
                 <tr>
-                  <th>Pick</th>
+                  <th style="width: 45px;">Pick</th>
                   <th>Team</th>
-                  <th>Actual</th>
+                  <th style="width: 55px; text-align: center;">Actual</th>
+                  <th style="width: 55px; text-align: center;">Points</th>
                 </tr>
               </thead>
               <tbody id="modal-east-body"></tbody>
@@ -158,9 +159,10 @@
             <table>
               <thead>
                 <tr>
-                  <th>Pick</th>
+                  <th style="width: 45px;">Pick</th>
                   <th>Team</th>
-                  <th>Actual</th>
+                  <th style="width: 55px; text-align: center;">Actual</th>
+                  <th style="width: 55px; text-align: center;">Points</th>
                 </tr>
               </thead>
               <tbody id="modal-west-body"></tbody>
@@ -251,7 +253,7 @@
     function renderConferencePicks(elementId, conf, picks) {
       const tbody = document.getElementById(elementId);
       if (!picks || picks.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" style="color: #94a3b8; text-align: center;">No picks</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="color: #94a3b8; text-align: center;">No picks</td></tr>`;
         return;
       }
 
@@ -259,16 +261,18 @@
         const predRank = idx + 1;
         const actualRank = globalLiveRanks[conf + "_" + String(team).trim()];
         
-        let diffText = "N/A";
+        let actualDisplay = "-";
+        let pointsDisplay = "-";
         let badgeClass = "";
 
         if (actualRank) {
+          actualDisplay = `#${actualRank}`;
           const diff = Math.abs(predRank - actualRank);
           if (diff === 0) {
-            diffText = `#${actualRank} (Exact!)`;
+            pointsDisplay = "0";
             badgeClass = "diff-perfect";
           } else {
-            diffText = `#${actualRank} (Off by ${diff})`;
+            pointsDisplay = `+${diff}`;
             badgeClass = diff <= 2 ? "diff-close" : "diff-far";
           }
         }
@@ -277,7 +281,8 @@
           <tr>
             <td style="font-weight: bold; color: #38bdf8;">${predRank}</td>
             <td>${escapeHtml(team)}</td>
-            <td><span class="diff-badge ${badgeClass}">${diffText}</span></td>
+            <td style="text-align: center; color: #94a3b8;">${actualDisplay}</td>
+            <td style="text-align: center;"><span class="diff-badge ${badgeClass}">${pointsDisplay}</span></td>
           </tr>
         `;
       }).join('');
