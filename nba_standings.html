@@ -179,6 +179,20 @@
     let globalLeaderboard = [];
     let globalLiveRanks = {};
 
+    function normalizeTeamName(name) {
+      if (!name) return "";
+      let clean = String(name).trim().toLowerCase()
+        .replace(/[^a-z0-9 ]/g, "")
+        .replace(/\s+/g, " ");
+
+      if (clean === "la clippers" || clean === "clippers") return "los angeles clippers";
+      if (clean === "la lakers" || clean === "lakers") return "los angeles lakers";
+      if (clean === "ny knicks" || clean === "knicks") return "new york knicks";
+      if (clean === "utah") return "utah jazz";
+
+      return clean;
+    }
+
     async function loadData() {
       const loadingEl = document.getElementById('loading-state');
       const errorEl = document.getElementById('error-state');
@@ -201,10 +215,11 @@
 
         globalLeaderboard = res.data.leaderboard || [];
 
-        // Map live team ranks for fast lookup
+        // Map live team ranks with normalized key lookup
         globalLiveRanks = {};
         (res.data.standings || []).forEach(s => {
-          globalLiveRanks[String(s.conference).toLowerCase() + "_" + String(s.team).trim()] = Number(s.rank);
+          const normTeam = normalizeTeamName(s.team);
+          globalLiveRanks[String(s.conference).toLowerCase() + "_" + normTeam] = Number(s.rank);
         });
 
         renderLeaderboard(globalLeaderboard);
@@ -259,7 +274,8 @@
 
       tbody.innerHTML = picks.map((team, idx) => {
         const predRank = idx + 1;
-        const actualRank = globalLiveRanks[conf + "_" + String(team).trim()];
+        const normTeam = normalizeTeamName(team);
+        const actualRank = globalLiveRanks[conf + "_" + normTeam];
         
         let actualDisplay = "-";
         let pointsDisplay = "-";
